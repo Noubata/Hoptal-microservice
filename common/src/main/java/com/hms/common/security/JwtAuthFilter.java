@@ -1,5 +1,6 @@
 package com.hms.common.security;
 
+import com.hms.common.security.JwtService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -20,11 +21,25 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
 
+    private static final List<String> PUBLIC_ENDPOINTS = List.of(
+            "/api/auth/login",
+            "/api/auth/enregistrer"
+    );
+
     @Override
     protected void doFilterInternal(
             HttpServletRequest request,
             HttpServletResponse response,
-            FilterChain filterChain) throws ServletException, IOException {
+            FilterChain filterChain)
+            throws ServletException, IOException {
+
+        String path = request.getRequestURI();
+
+        // Skip JWT validation for public endpoints
+        if (PUBLIC_ENDPOINTS.stream().anyMatch(path::startsWith)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
 
         String authHeader = request.getHeader("Authorization");
 
@@ -42,11 +57,9 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
                 UsernamePasswordAuthenticationToken auth =
                         new UsernamePasswordAuthenticationToken(
-                                username,
-                                null,
+                                username, null,
                                 List.of(new SimpleGrantedAuthority(
-                                        "ROLE_" + role))
-                        );
+                                        "ROLE_" + role)));
 
                 SecurityContextHolder.getContext()
                         .setAuthentication(auth);
